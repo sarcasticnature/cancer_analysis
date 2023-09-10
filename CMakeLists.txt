@@ -6,6 +6,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -pedantic")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# TODO: set up xtensor include dirs. Works out of the box on my machine :tm:, so it's low priority
+#find_package(xtensor REQUIRED)
+
 include(FetchContent)
 
 FetchContent_Declare(matplotplusplus
