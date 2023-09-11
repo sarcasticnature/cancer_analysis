@@ -45,22 +45,15 @@ readData(std::string observation_file, std::string group_file)
     return {training_obs, training_grp, testing_obs, testing_grp};
 }
 
-int main()
+void plotPCA(xt::xarray<double> observations, xt::xarray<double> groups, xt::xarray<double> Vxyz)
 {
-    xt::random::seed(80085);
-
-    auto [train_obs, train_grp, test_obs, test_grp] =
-        readData("data/ovariancancer_obs.csv", "data/ovariancancer_grp.csv");
-
-    // Calculate SVD
-    auto [U, S, VT] = xt::linalg::svd(train_obs, false);
-    xt::xarray<double> Vx = xt::view(VT, xt::range(0, 1), xt::all());
-    xt::xarray<double> Vy = xt::view(VT, xt::range(1, 2), xt::all());
-    xt::xarray<double> Vz = xt::view(VT, xt::range(2, 3), xt::all());
+    xt::xarray<double> Vx = xt::view(Vxyz, xt::range(0, 1), xt::all());
+    xt::xarray<double> Vy = xt::view(Vxyz, xt::range(1, 2), xt::all());
+    xt::xarray<double> Vz = xt::view(Vxyz, xt::range(2, 3), xt::all());
 
     // Prepare data for plotting
-    size_t sample_cnt = train_obs.shape()[0];
-    std::vector<double> colors(train_grp.begin(), train_grp.end());
+    size_t sample_cnt = observations.shape()[0];
+    std::vector<double> colors(groups.begin(), groups.end());
     //std::transform(
     //    colors.cbegin(),
     //    colors.cend(),
@@ -73,8 +66,8 @@ int main()
     ys.reserve(sample_cnt);
     zs.reserve(sample_cnt);
 
-    auto it = xt::axis_begin(train_obs, 0);
-    auto end = xt::axis_end(train_obs, 0);
+    auto it = xt::axis_begin(observations, 0);
+    auto end = xt::axis_end(observations, 0);
 
     while (it != end) {
         xs.push_back(xt::linalg::dot(Vx, *it)(0));
@@ -85,6 +78,19 @@ int main()
 
     matplot::scatter3(xs, ys, zs, std::vector<double>{}, colors)->marker_face(true);
     matplot::show();
+}
+
+int main()
+{
+    xt::random::seed(80085);
+
+    auto [train_obs, train_grp, test_obs, test_grp] =
+        readData("data/ovariancancer_obs.csv", "data/ovariancancer_grp.csv");
+
+    // Calculate SVD
+    auto [U, S, VT] = xt::linalg::svd(train_obs, false);
+
+    plotPCA(train_obs, train_grp, xt::view(VT, xt::range(0, 3), xt::all()));
 
     return 0;
 }
