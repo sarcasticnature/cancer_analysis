@@ -51,7 +51,6 @@ void plotPCA(xt::xarray<double> observations, xt::xarray<double> groups, xt::xar
     xt::xarray<double> Vy = xt::view(Vxyz, xt::range(1, 2), xt::all());
     xt::xarray<double> Vz = xt::view(Vxyz, xt::range(2, 3), xt::all());
 
-    // Prepare data for plotting
     size_t sample_cnt = observations.shape()[0];
     std::vector<double> colors(groups.begin(), groups.end());
     //std::transform(
@@ -66,17 +65,45 @@ void plotPCA(xt::xarray<double> observations, xt::xarray<double> groups, xt::xar
     ys.reserve(sample_cnt);
     zs.reserve(sample_cnt);
 
-    auto it = xt::axis_begin(observations, 0);
-    auto end = xt::axis_end(observations, 0);
+    // Plotting twice because matplot is dumb (and I want better colors)
+    xt::xarray<double> combined = xt::hstack(xt::xtuple(observations, groups));
+    size_t grp_idx = combined.shape()[1] - 1;
+    auto it = xt::axis_begin(combined, 0);
+    auto end = xt::axis_end(combined, 0);
 
     while (it != end) {
-        xs.push_back(xt::linalg::dot(Vx, *it)(0));
-        ys.push_back(xt::linalg::dot(Vy, *it)(0));
-        zs.push_back(xt::linalg::dot(Vz, *it)(0));
+        if (!it->at(grp_idx)) {
+            using namespace xt::placeholders;
+            auto obs = xt::view(*it, xt::range(_, -1));
+            xs.push_back(xt::linalg::dot(Vx, obs)(0));
+            ys.push_back(xt::linalg::dot(Vy, obs)(0));
+            zs.push_back(xt::linalg::dot(Vz, obs)(0));
+        }
         ++it;
     }
 
-    matplot::scatter3(xs, ys, zs, std::vector<double>{}, colors)->marker_face(true);
+    matplot::hold(matplot::on);
+    matplot::scatter3(xs, ys, zs)->marker_face(true).marker_size(10);
+    xs.clear();
+    ys.clear();
+    zs.clear();
+
+    // can't reassign iterators, so dumb
+    auto it_ = xt::axis_begin(combined, 0);
+
+    while (it_ != end) {
+        if (it_->at(grp_idx)) {
+            using namespace xt::placeholders;
+            auto obs = xt::view(*it_, xt::range(_, -1));
+            xs.push_back(xt::linalg::dot(Vx, obs)(0));
+            ys.push_back(xt::linalg::dot(Vy, obs)(0));
+            zs.push_back(xt::linalg::dot(Vz, obs)(0));
+        }
+        ++it_;
+    }
+
+    matplot::scatter3(xs, ys, zs)->marker_face(true).marker_size(10);
+    matplot::hold(matplot::off);
     matplot::show();
 }
 
