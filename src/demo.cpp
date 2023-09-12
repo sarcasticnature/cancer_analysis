@@ -6,6 +6,7 @@
 #include <string>
 
 #include "xtensor/xarray.hpp"
+#include "xtensor/xfixed.hpp"
 #include "xtensor/xcsv.hpp"
 #include "xtensor/xrandom.hpp"
 #include "xtensor/xbuilder.hpp"
@@ -45,11 +46,11 @@ readData(std::string observation_file, std::string group_file)
     return {training_obs, training_grp, testing_obs, testing_grp};
 }
 
-void plotPCA(xt::xarray<double> observations, xt::xarray<double> groups, xt::xarray<double> Vxyz)
+void plotPCA(xt::xarray<double> observations, xt::xarray<double> groups, xt::xarray<double> VTxyz)
 {
-    xt::xarray<double> Vx = xt::view(Vxyz, xt::range(0, 1), xt::all());
-    xt::xarray<double> Vy = xt::view(Vxyz, xt::range(1, 2), xt::all());
-    xt::xarray<double> Vz = xt::view(Vxyz, xt::range(2, 3), xt::all());
+    xt::xarray<double> Vx = xt::view(VTxyz, xt::range(0, 1), xt::all());
+    xt::xarray<double> Vy = xt::view(VTxyz, xt::range(1, 2), xt::all());
+    xt::xarray<double> Vz = xt::view(VTxyz, xt::range(2, 3), xt::all());
 
     size_t sample_cnt = observations.shape()[0];
     std::vector<double> colors(groups.begin(), groups.end());
@@ -65,7 +66,9 @@ void plotPCA(xt::xarray<double> observations, xt::xarray<double> groups, xt::xar
     ys.reserve(sample_cnt);
     zs.reserve(sample_cnt);
 
-    // Plotting twice because matplot is dumb (and I want better colors)
+    // Plotting twice because matplot is dumb (and has ugly default colors)
+    // I haven't found a different way to change the colors that actually works
+
     xt::xarray<double> combined = xt::hstack(xt::xtuple(observations, groups));
     size_t grp_idx = combined.shape()[1] - 1;
     auto it = xt::axis_begin(combined, 0);
@@ -107,6 +110,34 @@ void plotPCA(xt::xarray<double> observations, xt::xarray<double> groups, xt::xar
     matplot::show();
 }
 
+xt::xarray<double> computeKMeans(
+    xt::xarray<double> observations,
+    xt::xarray<double> VTxyz
+)
+{
+    xt::xarray<double> points = xt::linalg::dot(observations, xt::transpose(VTxyz));
+
+    size_t point_count = points.shape()[0];
+    xt::xarray<double> groups(std::vector<size_t>{point_count, 1});
+
+    xt::xtensor_fixed<double, xt::xshape<1, 3>> k0, k1, p;
+    // initialize cluster centers
+    k0 = xt::view(points, xt::range(0, 1), xt::all());
+    k1 = xt::view(points, xt::range(1, 2), xt::all());
+
+    // TODO: update clusters and iterate more than once
+    for (size_t i = 0; i < point_count; ++i) {
+        p = xt::view(points, xt::range(i, i + 1), xt::all());
+        if (xt::linalg::norm(k0 - p) < xt::linalg::norm(k1 - p)) {
+            groups(i) = 0.0;
+        } else {
+            groups(i) = 1.0;
+        }
+    }
+
+    return groups;
+}
+
 int main()
 {
     xt::random::seed(80085);
@@ -116,8 +147,11 @@ int main()
 
     // Calculate SVD
     auto [U, S, VT] = xt::linalg::svd(train_obs, false);
+    auto VTxyz = xt::view(VT, xt::range(0, 3), xt::all());
+    plotPCA(train_obs, train_grp, VTxyz);
 
-    plotPCA(train_obs, train_grp, xt::view(VT, xt::range(0, 3), xt::all()));
+    auto kmeans_grp = computeKMeans(train_obs, VTxyz);
+    plotPCA(train_obs, kmeans_grp, VTxyz);
 
     return 0;
 }
