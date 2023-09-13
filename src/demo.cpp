@@ -129,7 +129,6 @@ xt::xarray<double> computeKMeans(
     k0 = xt::view(points, xt::range(2, 3), xt::all());
     k1 = xt::view(points, xt::range(8, 9), xt::all());
 
-    // TODO: remove hardcoded # of iterations
     for (unsigned i = 0; i < max_iters; ++i) {
         for (size_t i = 0; i < point_count; ++i) {
             p = xt::view(points, xt::range(i, i + 1), xt::all());
@@ -143,7 +142,7 @@ xt::xarray<double> computeKMeans(
         if (groups == old_groups) break;
         old_groups = groups;
 
-        // TODO: difficult to parse, split into its own fn (lambda?)
+        // TODO: difficult to parse, split into its own fn (lambda?)?
         k0 = xt::mean(xt::view(points, xt::drop(xt::where(groups > 0.5)[0]), xt::all()), 0);
         k1 = xt::mean(xt::view(points, xt::keep(xt::where(groups > 0.5)[0]), xt::all()), 0);
     }
