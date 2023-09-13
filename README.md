@@ -16,7 +16,7 @@ Note at this time there is not a validation set (as the intial algorithms are al
 
 ## Preprocessing and Dimensionality Reduction
 The first step taken is to scale the data to have a mean of zero and a standard deviation of 1.
-Singular Value Decomposition (SVD) is then performed to find the Principle Components (based on the right singular vectors)
+Singular Value Decomposition (SVD) is then performed to find the Principle Components (based on the right singular vectors).
 The first three singlular vectors (associated with the three largest singular values) are used to reduce the data's dimensionality.
 At the end of this step, the training portion of the dataset is plotted (colored by group) using the three principle components as the x, y, and z axes, as shown below.
 
