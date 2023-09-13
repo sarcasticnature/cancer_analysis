@@ -46,7 +46,7 @@ readData(std::string observation_file, std::string group_file)
     return {training_obs, training_grp, testing_obs, testing_grp};
 }
 
-void plotPCA(xt::xarray<double> observations, xt::xarray<double> groups, xt::xarray<double> VTxyz)
+void plotData(xt::xarray<double> observations, xt::xarray<double> groups, xt::xarray<double> VTxyz)
 {
     xt::xarray<double> Vx = xt::view(VTxyz, xt::range(0, 1), xt::all());
     xt::xarray<double> Vy = xt::view(VTxyz, xt::range(1, 2), xt::all());
@@ -110,6 +110,7 @@ void plotPCA(xt::xarray<double> observations, xt::xarray<double> groups, xt::xar
     matplot::show();
 }
 
+
 xt::xarray<double> computeKMeans(
     xt::xarray<double> observations,
     xt::xarray<double> VTxyz
@@ -118,21 +119,26 @@ xt::xarray<double> computeKMeans(
     xt::xarray<double> points = xt::linalg::dot(observations, xt::transpose(VTxyz));
 
     size_t point_count = points.shape()[0];
-    xt::xarray<double> groups(std::vector<size_t>{point_count, 1});
+    xt::xarray<double> groups = xt::empty<double>(std::vector<size_t>{point_count, 1});
 
     xt::xtensor_fixed<double, xt::xshape<1, 3>> k0, k1, p;
     // initialize cluster centers
     k0 = xt::view(points, xt::range(0, 1), xt::all());
     k1 = xt::view(points, xt::range(1, 2), xt::all());
 
-    // TODO: update clusters and iterate more than once
-    for (size_t i = 0; i < point_count; ++i) {
-        p = xt::view(points, xt::range(i, i + 1), xt::all());
-        if (xt::linalg::norm(k0 - p) < xt::linalg::norm(k1 - p)) {
-            groups(i) = 0.0;
-        } else {
-            groups(i) = 1.0;
+    // TODO: remove hardcoded # of iterations
+    for (auto i = 0; i < 10; ++i) {
+        for (size_t i = 0; i < point_count; ++i) {
+            p = xt::view(points, xt::range(i, i + 1), xt::all());
+            if (xt::linalg::norm(k0 - p) < xt::linalg::norm(k1 - p)) {
+                groups(i) = 0.0;
+            } else {
+                groups(i) = 1.0;
+            }
         }
+        // TODO: difficult to parse, split into its own fn (lambda?)
+        k0 = xt::mean(xt::view(points, xt::drop(xt::where(groups > 0.5)[0]), xt::all()), 0);
+        k1 = xt::mean(xt::view(points, xt::keep(xt::where(groups > 0.5)[0]), xt::all()), 0);
     }
 
     return groups;
@@ -145,13 +151,16 @@ int main()
     auto [train_obs, train_grp, test_obs, test_grp] =
         readData("data/ovariancancer_obs.csv", "data/ovariancancer_grp.csv");
 
-    // Calculate SVD
-    auto [U, S, VT] = xt::linalg::svd(train_obs, false);
+    // Normalize the data and calculate the SVD
+    // TODO: the xt::stddev call is slow... consider replacing?
+    xt::xarray<double> X = (train_obs - xt::mean(train_obs, 0)) / xt::stddev(train_obs, {0});
+    auto [U, S, VT] = xt::linalg::svd(X, false);
+    // Use the first three principal components
     auto VTxyz = xt::view(VT, xt::range(0, 3), xt::all());
-    plotPCA(train_obs, train_grp, VTxyz);
+    plotData(X, train_grp, VTxyz);
 
-    auto kmeans_grp = computeKMeans(train_obs, VTxyz);
-    plotPCA(train_obs, kmeans_grp, VTxyz);
+    auto kmeans_grp = computeKMeans(X, VTxyz);
+    plotData(X, kmeans_grp, VTxyz);
 
     return 0;
 }
