@@ -26,9 +26,12 @@ At the end of this step, the training portion of the dataset is plotted (colored
 K-Means was implemented as the first algorithm with which to analyze the data.
 It is an unsupervised technique, so the group labels are not used by the algorithm.
 
-Initial results were shockingly good, correctly clustering all but three of the observations together.
+Performance of this algorithm was middling, as roughly 50 patients are put into the wrong cluster on the training set.
+The cluster centers found from running the algorithm on the training set were used to 'predict' which group the patients in the test set belong to (based on which center was closer).
+Results from the latter experiment were terrible, with the approach being little better than a coin flip.
+
 These results appear to be repeatable, and have been tested under different random seeds and initial guesses (for the cluster centers).
-An image of the clusters is shown below, which clearly shows the surprising accuracy of the algorithm on this particular dataset (and preparation thereof).
+An image of the training set clusters is shown below.
 
 ![somebody got their filepath wrong](images/k-means.png)
 

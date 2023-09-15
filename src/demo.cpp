@@ -6,6 +6,7 @@
 #include <string>
 
 #include "xtensor/xarray.hpp"
+#include "xtensor/xadapt.hpp"
 #include "xtensor/xfixed.hpp"
 #include "xtensor/xcsv.hpp"
 #include "xtensor/xrandom.hpp"
@@ -86,6 +87,7 @@ void plotData(xt::xarray<double> observations, xt::xarray<double> groups, xt::xa
         ++it;
     }
 
+    matplot::figure();
     matplot::hold(matplot::on);
     matplot::scatter3(xs, ys, zs)->marker_face(true).marker_size(10);
     xs.clear();
@@ -112,30 +114,37 @@ void plotData(xt::xarray<double> observations, xt::xarray<double> groups, xt::xa
 }
 
 
-xt::xarray<double> computeKMeans(
-    xt::xarray<double> observations,
-    xt::xarray<double> VTxyz,
-    unsigned max_iters
-)
+std::tuple<xt::xarray<double>, xt::xtensor_fixed<double, xt::xshape<2, 3>>>
+computeKMeans(xt::xarray<double> observations,
+              xt::xarray<double> VTxyz,
+              unsigned max_iters)
 {
     xt::xarray<double> points = xt::linalg::dot(observations, xt::transpose(VTxyz));
 
     size_t point_count = points.shape()[0];
-    xt::xarray<double> groups = xt::empty<double>(std::vector<size_t>{point_count, 1});
+    xt::xarray<double> groups = xt::ones<double>(std::vector<size_t>{point_count, 1});
     xt::xarray<double> old_groups = groups;
 
+    xt::xarray<bool> mask;
+    xt::xarray<double> tmp; // TODO: better name
     xt::xtensor_fixed<double, xt::xshape<1, 3>> k0, k1, p;
     // initialize cluster centers -- TODO: randomize
     k0 = xt::view(points, xt::range(2, 3), xt::all());
     k1 = xt::view(points, xt::range(8, 9), xt::all());
 
     for (unsigned i = 0; i < max_iters; ++i) {
-        for (size_t i = 0; i < point_count; ++i) {
-            p = xt::view(points, xt::range(i, i + 1), xt::all());
+        for (size_t j = 0; j < point_count; ++j) {
+            p = xt::view(points, xt::range(j, j + 1), xt::all());
+            //std::cout << "p=" << p << std::endl;
+            //std::cout << "k1=" << k1 << std::endl;
+            //std::cout << "k1-p=" << (k1 - p) << std::endl;
+            //std::cout << "norm k0 - p=" << xt::linalg::norm(xt::eval(k0 - p)) << std::endl;
+            //std::cout << "norm k1 - p=" << xt::linalg::norm(xt::eval(k1 - p)) << std::endl;
+            //std::cout << (xt::linalg::norm(k0 - p) - xt::linalg::norm(k1 - p)) << std::endl;
             if (xt::linalg::norm(k0 - p) < xt::linalg::norm(k1 - p)) {
-                groups(i) = 0.0;
+                groups(j, 0) = 0.0;
             } else {
-                groups(i) = 1.0;
+                groups(j, 0) = 1.0;
             }
         }
 
@@ -143,8 +152,44 @@ xt::xarray<double> computeKMeans(
         old_groups = groups;
 
         // TODO: difficult to parse, split into its own fn (lambda?)?
-        k0 = xt::mean(xt::view(points, xt::drop(xt::where(groups > 0.5)[0]), xt::all()), 0);
-        k1 = xt::mean(xt::view(points, xt::keep(xt::where(groups > 0.5)[0]), xt::all()), 0);
+        //k0 = xt::mean(xt::view(points, xt::drop(xt::argwhere(groups > 0.5)), xt::all()), 0);
+        //k1 = xt::mean(xt::view(points, xt::keep(xt::argwhere(groups > 0.5)), xt::all()), 0);
+        mask = groups > 0.5;
+        mask.reshape({-1, 1});
+        tmp = xt::filter(points, xt::hstack(xt::xtuple(mask, mask, mask)));
+        k0 = xt::mean(tmp.reshape({-1, 3}), 0);
+        mask = groups < 0.5;
+        mask.reshape({-1, 1});
+        //std::cout << xt::hstack(xt::xtuple(mask, groups)) << std::endl;
+        tmp = xt::filter(points, xt::hstack(xt::xtuple(mask, mask, mask)));
+        k1 = xt::mean(tmp.reshape({-1, 3}), 0);
+    }
+
+    auto centers = xt::concatenate(xt::xtuple(k0, k1), 0);
+    return {groups, centers};
+}
+
+xt::xarray<double> testKMeans(xt::xarray<double> observations,
+                              xt::xarray<double> VTxyz,
+                              xt::xtensor_fixed<double, xt::xshape<2, 3>> centers)
+{
+    xt::xarray<double> points = xt::linalg::dot(observations, xt::transpose(VTxyz));
+
+    size_t point_count = points.shape()[0];
+    xt::xarray<double> groups = xt::empty<double>(std::vector<size_t>{point_count, 1});
+
+    xt::xtensor_fixed<double, xt::xshape<1, 3>> k0, k1, p;
+    k0 = xt::view(centers, xt::range(0, 1), xt::all());
+    k1 = xt::view(centers, xt::range(1, 2), xt::all());
+
+    
+    for (size_t i = 0; i < point_count; ++i) {
+        p = xt::view(points, xt::range(i, i + 1), xt::all());
+        if (xt::linalg::norm(k0 - p) < xt::linalg::norm(k1 - p)) {
+            groups(i, 0) = 0.0;
+        } else {
+            groups(i, 0) = 1.0;
+        }
     }
 
     return groups;
@@ -169,11 +214,26 @@ int main()
     auto VTxyz = xt::view(VT, xt::range(0, 3), xt::all());
     plotData(X, train_grp, VTxyz);
 
-    auto kmeans_grp = computeKMeans(X, VTxyz, 100);
-    plotData(X, kmeans_grp, VTxyz);
+    auto [kmeans_training_grp, centers]= computeKMeans(X, VTxyz, 100);
+    plotData(X, kmeans_training_grp, VTxyz);
 
-    auto error = xt::sum(xt::cast<int>(train_grp) ^ xt::cast<int>(kmeans_grp))();
-    std::cout << "Number of misclassified patients: " << error << std::endl;
+    auto error = xt::sum(xt::cast<int>(train_grp) ^ xt::cast<int>(kmeans_training_grp))();
+    std::cout << "Number of misclassified patients on training set: " << error << std::endl;
+
+    // TODO: the xt::stddev call is slow... consider replacing?
+    std::cout << "TODO: xt::stddev is slow, consider replacing" << std::endl;
+    xt::xarray<double> Y = (test_obs - xt::mean(test_obs, 0)) / xt::stddev(test_obs, {0});
+    std::cout << "xt::stddev finished" << std::endl;
+
+    auto kmeans_test_grp = testKMeans(Y, VTxyz, centers);
+    //std::cout << "kmeans_test_grp= " << kmeans_test_grp << std::endl;
+    //std::cout << "test_grp= " << test_grp << std::endl;
+    std::cout << "centers=" << centers << std::endl;
+    plotData(Y, test_grp, VTxyz);
+    plotData(Y, kmeans_test_grp, VTxyz);
+
+    error = xt::sum(xt::cast<int>(test_grp) ^ xt::cast<int>(kmeans_test_grp))();
+    std::cout << "Number of misclassified patients on test set: " << error << std::endl;
 
     return 0;
 }
