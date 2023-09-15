@@ -35,8 +35,6 @@ An image of the training set clusters is shown below.
 
 ![somebody got their filepath wrong](images/k-means.png)
 
-TODO: Take the cluster centers found when processing the training set and use them to predict which group the patients in the test set belong to.
-
 ## Acknowledgements
 This dataset is sourced from the material provided with the book "Data Driven Science & Engineering: Machine Learning, Dynamical Systems, and Control" by S. L. Brunton and J. N. Kutz.
 
