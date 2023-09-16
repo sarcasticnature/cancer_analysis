@@ -22,7 +22,9 @@ if(NOT matplotplusplus_POPULATED)
     add_subdirectory(${matplotplusplus_SOURCE_DIR} ${matplotplusplus_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 
-add_executable(demo src/demo.cpp)
-target_link_libraries(demo PUBLIC matplot)
+include_directories(include)
+
+add_executable(kmeans src/kmeans.cpp)
+target_link_libraries(kmeans PUBLIC matplot)
 
 file(COPY data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
