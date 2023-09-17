@@ -105,14 +105,10 @@ void plotData(xt::xarray<double> observations, xt::xarray<double> groups, xt::xa
     matplot::show();
 }
 
-template<typename T>
+template <typename T>
 xt::xarray<T> normalizeData(xt::xarray<T> data)
 {
-    // TODO: the xt::stddev call is slow... consider replacing?
-    // TODO: remove print statements after replacement
-    std::cout << "TODO: xt::stddev is slow, consider replacing" << std::endl;
     xt::xarray<T> res = (data - xt::mean(data, 0)) / xt::stddev(data, {0});
-    std::cout << "normalization finished" << std::endl;
     return res;
 }
 
