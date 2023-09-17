@@ -96,10 +96,7 @@ int main()
         cancer_analysis::readData("data/ovariancancer_obs.csv", "data/ovariancancer_grp.csv");
 
     // Normalize the data and calculate the SVD
-    // TODO: the xt::stddev call is slow... consider replacing?
-    std::cout << "TODO: xt::stddev is slow, consider replacing" << std::endl;
-    xt::xarray<double> X = (train_obs - xt::mean(train_obs, 0)) / xt::stddev(train_obs, {0});
-    std::cout << "xt::stddev finished" << std::endl;
+    xt::xarray<double> X = cancer_analysis::normalizeData(train_obs);
 
     auto [U, S, VT] = xt::linalg::svd(X, false);
     // Use the first three principal components
@@ -112,10 +109,7 @@ int main()
     auto error = xt::sum(xt::cast<int>(train_grp) ^ xt::cast<int>(kmeans_training_grp))();
     std::cout << "Number of misclassified patients on training set: " << error << std::endl;
 
-    // TODO: the xt::stddev call is slow... consider replacing?
-    std::cout << "TODO: xt::stddev is slow, consider replacing" << std::endl;
-    xt::xarray<double> Y = (test_obs - xt::mean(test_obs, 0)) / xt::stddev(test_obs, {0});
-    std::cout << "xt::stddev finished" << std::endl;
+    xt::xarray<double> Y = cancer_analysis::normalizeData(test_obs);
 
     auto kmeans_test_grp = cancer_analysis::testKMeans(Y, VTxyz, centers);
     cancer_analysis::plotData(Y, test_grp, VTxyz);
