@@ -69,7 +69,7 @@ void plotData(xt::xarray<double> observations, xt::xarray<double> groups, xt::xa
     auto end = xt::axis_end(combined, 0);
 
     while (it != end) {
-        if (!it->at(grp_idx)) {
+        if (it->at(grp_idx) <= 0) {     // TODO: should probably leave slop 'cause floating point
             using namespace xt::placeholders;
             auto obs = xt::view(*it, xt::range(_, -1));
             xs.push_back(xt::linalg::dot(Vx, obs)(0));
@@ -90,7 +90,7 @@ void plotData(xt::xarray<double> observations, xt::xarray<double> groups, xt::xa
     auto it_ = xt::axis_begin(combined, 0);
 
     while (it_ != end) {
-        if (it_->at(grp_idx)) {
+        if (it_->at(grp_idx) > 0) {     // TODO: should probably leave slop 'cause floating point
             using namespace xt::placeholders;
             auto obs = xt::view(*it_, xt::range(_, -1));
             xs.push_back(xt::linalg::dot(Vx, obs)(0));
@@ -102,7 +102,6 @@ void plotData(xt::xarray<double> observations, xt::xarray<double> groups, xt::xa
 
     matplot::scatter3(xs, ys, zs)->marker_face(true).marker_size(10);
     matplot::hold(matplot::off);
-    matplot::show();
 }
 
 template <typename T>
@@ -110,6 +109,102 @@ xt::xarray<T> normalizeData(xt::xarray<T> data)
 {
     xt::xarray<T> res = (data - xt::mean(data, 0)) / xt::stddev(data, {0});
     return res;
+}
+
+template <typename T>
+void plotLoss(std::vector<T> losses)
+{
+    matplot::figure();
+    matplot::plot(losses);
+}
+
+template <typename T>
+void plotPlane(xt::xarray<T> w, T b)
+{
+    auto [X, Y] = matplot::meshgrid(matplot::linspace(-5, 5, 40), matplot::linspace(-5, 5, 40));
+    auto fn = [&w,&b](double x, double y) {
+        return (b - w(0) * x - w(1) * y) / w(2);
+    };
+    auto Z = matplot::transform(X, Y, fn);
+    matplot::figure();
+    matplot::surf(X, Y, Z);
+}
+
+void plotSVM(
+    xt::xarray<double> observations,
+    xt::xarray<double> groups,
+    xt::xarray<double> VTxyz,
+    xt::xarray<double> w,
+    double b
+)
+{
+    xt::xarray<double> Vx = xt::view(VTxyz, xt::range(0, 1), xt::all());
+    xt::xarray<double> Vy = xt::view(VTxyz, xt::range(1, 2), xt::all());
+    xt::xarray<double> Vz = xt::view(VTxyz, xt::range(2, 3), xt::all());
+
+    size_t sample_cnt = observations.shape()[0];
+    std::vector<double> colors(groups.begin(), groups.end());
+
+    std::vector<double> xs, ys, zs;
+    xs.reserve(sample_cnt);
+    ys.reserve(sample_cnt);
+    zs.reserve(sample_cnt);
+
+    // Plotting twice because matplot is dumb (and has ugly default colors)
+    // I haven't found a different way to change the colors that actually works
+
+    xt::xarray<double> combined = xt::hstack(xt::xtuple(observations, groups));
+    size_t grp_idx = combined.shape()[1] - 1;
+    auto it = xt::axis_begin(combined, 0);
+    auto end = xt::axis_end(combined, 0);
+
+    while (it != end) {
+        if (it->at(grp_idx) <= 0) {     // TODO: should probably leave slop 'cause floating point
+            using namespace xt::placeholders;
+            auto obs = xt::view(*it, xt::range(_, -1));
+            xs.push_back(xt::linalg::dot(Vx, obs)(0));
+            ys.push_back(xt::linalg::dot(Vy, obs)(0));
+            zs.push_back(xt::linalg::dot(Vz, obs)(0));
+        }
+        ++it;
+    }
+
+    matplot::figure();
+    matplot::hold(matplot::on);
+    matplot::scatter3(xs, ys, zs)->marker_face(true).marker_size(10);
+    xs.clear();
+    ys.clear();
+    zs.clear();
+
+    // can't reassign iterators, so dumb
+    auto it_ = xt::axis_begin(combined, 0);
+
+    while (it_ != end) {
+        if (it_->at(grp_idx) > 0) {     // TODO: should probably leave slop 'cause floating point
+            using namespace xt::placeholders;
+            auto obs = xt::view(*it_, xt::range(_, -1));
+            xs.push_back(xt::linalg::dot(Vx, obs)(0));
+            ys.push_back(xt::linalg::dot(Vy, obs)(0));
+            zs.push_back(xt::linalg::dot(Vz, obs)(0));
+        }
+        ++it_;
+    }
+
+    matplot::scatter3(xs, ys, zs)->marker_face(true).marker_size(10);
+
+    auto [X, Y] = matplot::meshgrid(matplot::linspace(-50, 50, 50), matplot::linspace(-50, 50, 50));
+    auto fn = [&w,&b](double x, double y) {
+        return (-b - w(0, 0) * x - w(1, 0) * y) / w(2, 0);
+    };
+    auto Z = matplot::transform(X, Y, fn);
+    matplot::mesh(X, Y, Z);
+
+    matplot::hold(matplot::off);
+}
+
+void showPlots()
+{
+    matplot::show();
 }
 
 } // namespace cancer_analysis

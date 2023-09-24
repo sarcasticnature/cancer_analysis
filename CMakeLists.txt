@@ -27,4 +27,7 @@ include_directories(include)
 add_executable(kmeans src/kmeans.cpp)
 target_link_libraries(kmeans PUBLIC matplot)
 
+add_executable(linear_svm src/linear_svm.cpp)
+target_link_libraries(linear_svm PUBLIC matplot)
+
 file(COPY data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

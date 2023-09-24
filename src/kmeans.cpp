@@ -118,5 +118,7 @@ int main()
     error = xt::sum(xt::cast<int>(test_grp) ^ xt::cast<int>(kmeans_test_grp))();
     std::cout << "Number of misclassified patients on test set: " << error << std::endl;
 
+    cancer_analysis::showPlots();
+
     return 0;
 }
